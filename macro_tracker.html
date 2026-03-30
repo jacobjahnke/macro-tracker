@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1B1B2F">
+<title>Macro Tracker</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+:root {
+  --bg: #0f0f1a; --card: #1a1a2e; --card2: #16213e; --accent: #e43f5a;
+  --teal: #1b9aaa; --green: #2ecc71; --yellow: #f1c40f; --red: #e74c3c;
+  --text: #e8e8e8; --text2: #a0a0b8; --border: #2a2a45;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 80px; }
+.header { background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 16px 20px 12px; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid var(--border); }
+.header h1 { font-size: 20px; font-weight: 700; }
+.header .date { font-size: 13px; color: var(--text2); margin-top: 2px; }
+.macros-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 12px 16px; }
+.macro-card { background: var(--card); border-radius: 12px; padding: 10px 8px; text-align: center; }
+.macro-card .label { font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; }
+.macro-card .value { font-size: 22px; font-weight: 700; margin: 4px 0 2px; }
+.macro-card .target { font-size: 11px; color: var(--text2); }
+.macro-card .bar { height: 4px; background: var(--border); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+.macro-card .bar-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
+.cal .value { color: var(--accent); }
+.cal .bar-fill { background: var(--accent); }
+.pro .value { color: var(--teal); }
+.pro .bar-fill { background: var(--teal); }
+.carb .value { color: var(--yellow); }
+.carb .bar-fill { background: var(--yellow); }
+.fat .value { color: var(--green); }
+.fat .bar-fill { background: var(--green); }
+
+.section-title { font-size: 14px; font-weight: 600; color: var(--text2); padding: 16px 20px 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* Input area */
+.input-area { padding: 0 16px 12px; }
+.input-wrapper { display: flex; gap: 8px; }
+.input-wrapper input { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; color: var(--text); font-size: 16px; outline: none; }
+.input-wrapper input:focus { border-color: var(--teal); }
+.input-wrapper input::placeholder { color: #555; }
+.input-wrapper button { background: var(--teal); color: white; border: none; border-radius: 12px; padding: 14px 20px; font-size: 15px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+
+/* Search results */
+.search-results { padding: 0 16px; max-height: 300px; overflow-y: auto; }
+.search-item { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+.search-item:active { background: var(--card2); }
+.search-item .name { font-size: 14px; font-weight: 500; }
+.search-item .details { font-size: 11px; color: var(--text2); margin-top: 2px; }
+.search-item .add-btn { background: var(--teal); color: white; border: none; border-radius: 8px; padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
+
+/* Quantity modal */
+.modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center; }
+.modal-overlay.active { display: flex; }
+.modal { background: var(--card); border-radius: 16px; padding: 24px; width: 90%; max-width: 340px; }
+.modal h3 { font-size: 16px; margin-bottom: 4px; }
+.modal .food-name { font-size: 13px; color: var(--text2); margin-bottom: 16px; }
+.modal .qty-row { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 16px; }
+.modal .qty-btn { background: var(--card2); border: 1px solid var(--border); color: var(--text); width: 44px; height: 44px; border-radius: 50%; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.modal .qty-val { font-size: 28px; font-weight: 700; min-width: 60px; text-align: center; }
+.modal .qty-unit { font-size: 12px; color: var(--text2); text-align: center; margin-top: -8px; margin-bottom: 12px; }
+.modal .macro-preview { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; text-align: center; }
+.modal .macro-preview div { font-size: 11px; color: var(--text2); }
+.modal .macro-preview .num { font-size: 16px; font-weight: 600; color: var(--text); }
+.modal .btn-row { display: flex; gap: 8px; }
+.modal .btn-cancel { flex: 1; background: var(--card2); border: 1px solid var(--border); color: var(--text); border-radius: 10px; padding: 12px; font-size: 15px; cursor: pointer; }
+.modal .btn-add { flex: 1; background: var(--accent); border: none; color: white; border-radius: 10px; padding: 12px; font-size: 15px; font-weight: 600; cursor: pointer; }
+
+/* Food log */
+.log-item { background: var(--card); border-radius: 10px; margin: 0 16px 6px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; }
+.log-item .info .name { font-size: 14px; }
+.log-item .info .macros { font-size: 11px; color: var(--text2); margin-top: 2px; }
+.log-item .cals { font-size: 16px; font-weight: 600; color: var(--accent); }
+.log-item .remove { background: none; border: none; color: var(--red); font-size: 18px; cursor: pointer; padding: 4px 8px; margin-left: 8px; }
+
+/* Quick add */
+.quick-foods { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 12px; }
+.quick-chip { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 8px 14px; font-size: 13px; color: var(--text); cursor: pointer; white-space: nowrap; }
+.quick-chip:active { background: var(--teal); border-color: var(--teal); }
+
+/* Clear day btn */
+.clear-btn { display: block; margin: 16px auto; background: none; border: 1px solid var(--border); color: var(--text2); border-radius: 10px; padding: 10px 24px; font-size: 13px; cursor: pointer; }
+
+/* Tabs */
+.tabs { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card); border-top: 1px solid var(--border); display: flex; z-index: 100; padding-bottom: env(safe-area-inset-bottom); }
+.tab { flex: 1; text-align: center; padding: 10px 0; cursor: pointer; }
+.tab .icon { font-size: 20px; }
+.tab .label { font-size: 10px; color: var(--text2); margin-top: 2px; }
+.tab.active .icon, .tab.active .label { color: var(--teal); }
+
+.page { display: none; }
+.page.active { display: block; }
+
+/* History */
+.history-day { background: var(--card); border-radius: 12px; margin: 0 16px 10px; padding: 14px; }
+.history-day .day-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+.history-day .day-date { font-weight: 600; font-size: 14px; }
+.history-day .day-cals { color: var(--accent); font-weight: 600; }
+.history-day .day-macros { font-size: 12px; color: var(--text2); }
+.history-day .day-foods { font-size: 12px; color: var(--text2); margin-top: 6px; }
+
+/* Supplements */
+.supp-item { background: var(--card); border-radius: 10px; margin: 0 16px 6px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; }
+.supp-item .supp-info .supp-name { font-size: 14px; }
+.supp-item .supp-info .supp-dose { font-size: 11px; color: var(--text2); }
+.supp-check { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--border); background: none; color: transparent; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.supp-check.checked { background: var(--green); border-color: var(--green); color: white; }
+
+.empty-state { text-align: center; padding: 40px 20px; color: var(--text2); font-size: 14px; }
+
+/* Custom food form */
+.custom-form { background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin: 8px 16px; padding: 16px; }
+.custom-form h4 { font-size: 14px; margin-bottom: 12px; color: var(--teal); }
+.custom-form .form-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.custom-form .form-row.full input { flex: 1; }
+.custom-form input { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text); font-size: 14px; outline: none; flex: 1; min-width: 0; }
+.custom-form input:focus { border-color: var(--teal); }
+.custom-form input::placeholder { color: #555; }
+.custom-form .form-label { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+.custom-form .form-group { flex: 1; }
+.custom-form .btn-row { display: flex; gap: 8px; margin-top: 12px; }
+.custom-form .btn-save { flex: 1; background: var(--accent); border: none; color: white; border-radius: 10px; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.custom-form .btn-cancel-custom { flex: 1; background: var(--card2); border: 1px solid var(--border); color: var(--text); border-radius: 10px; padding: 12px; font-size: 14px; cursor: pointer; }
+.custom-toggle { background: none; border: 1px dashed var(--border); border-radius: 10px; color: var(--text2); padding: 10px; font-size: 13px; cursor: pointer; width: calc(100% - 32px); margin: 8px 16px; text-align: center; }
+.custom-toggle:active { border-color: var(--teal); color: var(--teal); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Macro Tracker</h1>
+  <div class="date" id="dateDisplay"></div>
+</div>
+
+<!-- TODAY PAGE -->
+<div class="page active" id="pageToday">
+  <div class="macros-summary">
+    <div class="macro-card cal">
+      <div class="label">Calories</div>
+      <div class="value" id="calVal">0</div>
+      <div class="target">/ <span id="calTarget">3300</span></div>
+      <div class="bar"><div class="bar-fill" id="calBar"></div></div>
+    </div>
+    <div class="macro-card pro">
+      <div class="label">Protein</div>
+      <div class="value" id="proVal">0</div>
+      <div class="target">/ <span id="proTarget">175</span>g</div>
+      <div class="bar"><div class="bar-fill" id="proBar"></div></div>
+    </div>
+    <div class="macro-card carb">
+      <div class="label">Carbs</div>
+      <div class="value" id="carbVal">0</div>
+      <div class="target">/ <span id="carbTarget">400</span>g</div>
+      <div class="bar"><div class="bar-fill" id="carbBar"></div></div>
+    </div>
+    <div class="macro-card fat">
+      <div class="label">Fat</div>
+      <div class="value" id="fatVal">0</div>
+      <div class="target">/ <span id="fatTarget">95</span>g</div>
+      <div class="bar"><div class="bar-fill" id="fatBar"></div></div>
+    </div>
+  </div>
+
+  <div class="section-title">Add Food</div>
+  <div class="input-area">
+    <div class="input-wrapper">
+      <input type="text" id="foodInput" placeholder="e.g. chicken burrito, protein shake..." autocomplete="off">
+      <button onclick="searchFood()">Search</button>
+    </div>
+  </div>
+  <div class="search-results" id="searchResults"></div>
+
+  <button class="custom-toggle" id="customToggle" onclick="toggleCustomForm()">+ Add custom food (enter your own macros)</button>
+  <div class="custom-form" id="customForm" style="display:none;">
+    <h4>Custom Food</h4>
+    <div class="form-row full"><input type="text" id="cfName" placeholder="Food name (e.g. chicken Caesar wrap)"></div>
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">Calories</div><input type="number" id="cfCal" placeholder="0"></div>
+      <div class="form-group"><div class="form-label">Protein (g)</div><input type="number" id="cfPro" placeholder="0"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">Carbs (g)</div><input type="number" id="cfCarb" placeholder="0"></div>
+      <div class="form-group"><div class="form-label">Fat (g)</div><input type="number" id="cfFat" placeholder="0"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-cancel-custom" onclick="toggleCustomForm()">Cancel</button>
+      <button class="btn-save" onclick="addCustomFood()">Add to Log</button>
+    </div>
+  </div>
+
+  <div class="section-title">Quick Add</div>
+  <div class="quick-foods" id="quickFoods"></div>
+
+  <div class="section-title">Today's Log</div>
+  <div id="todayLog"></div>
+  <button class="clear-btn" onclick="clearDay()">Clear Today</button>
+</div>
+
+<!-- HISTORY PAGE -->
+<div class="page" id="pageHistory">
+  <div class="section-title">History</div>
+  <div id="historyList"></div>
+</div>
+
+<!-- SUPPLEMENTS PAGE -->
+<div class="page" id="pageSupps">
+  <div class="section-title">Daily Supplements</div>
+  <div id="suppList"></div>
+</div>
+
+<!-- QUANTITY MODAL -->
+<div class="modal-overlay" id="qtyModal">
+  <div class="modal">
+    <h3>How much?</h3>
+    <div class="food-name" id="modalFoodName"></div>
+    <div class="qty-row">
+      <button class="qty-btn" onclick="changeQty(-0.5)">-</button>
+      <div class="qty-val" id="qtyVal">1</div>
+      <button class="qty-btn" onclick="changeQty(0.5)">+</button>
+    </div>
+    <div class="qty-unit" id="qtyUnit">serving</div>
+    <div class="macro-preview">
+      <div><div class="num" id="prevCal">0</div>cal</div>
+      <div><div class="num" id="prevPro">0</div>protein</div>
+      <div><div class="num" id="prevCarb">0</div>carbs</div>
+      <div><div class="num" id="prevFat">0</div>fat</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-add" onclick="confirmAdd()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" onclick="switchPage('pageToday', this)"><div class="icon">📊</div><div class="label">Today</div></div>
+  <div class="tab" onclick="switchPage('pageHistory', this)"><div class="icon">📅</div><div class="label">History</div></div>
+  <div class="tab" onclick="switchPage('pageSupps', this)"><div class="icon">💊</div><div class="label">Supps</div></div>
+</div>
+
+<script>
+// ========== CONFIG ==========
+const TARGETS = { cal: 3300, pro: 175, carb: 400, fat: 95 };
+
+// ========== FOOD DATABASE ==========
+const FOODS = [
+  // Proteins
+  { name: "Chicken breast (grilled, 6oz)", serving: "6 oz", cal: 280, pro: 52, carb: 0, fat: 6, tags: "chicken breast grilled" },
+  { name: "Chicken thigh (6oz)", serving: "6 oz", cal: 330, pro: 42, carb: 0, fat: 18, tags: "chicken thigh" },
+  { name: "Salmon fillet (6oz)", serving: "6 oz", cal: 350, pro: 40, carb: 0, fat: 20, tags: "salmon fish" },
+  { name: "Ground turkey 93% (6oz)", serving: "6 oz", cal: 250, pro: 42, carb: 0, fat: 8, tags: "turkey ground" },
+  { name: "Ground beef 85% (6oz)", serving: "6 oz", cal: 380, pro: 40, carb: 0, fat: 24, tags: "beef ground hamburger" },
+  { name: "Steak sirloin (8oz)", serving: "8 oz", cal: 400, pro: 56, carb: 0, fat: 18, tags: "steak sirloin beef" },
+  { name: "Eggs (1 large)", serving: "1 egg", cal: 70, pro: 6, carb: 0, fat: 5, tags: "egg eggs" },
+  { name: "Egg whites (1 cup)", serving: "1 cup", cal: 120, pro: 26, carb: 2, fat: 0, tags: "egg whites" },
+  { name: "Shrimp (6oz)", serving: "6 oz", cal: 170, pro: 36, carb: 0, fat: 2, tags: "shrimp seafood" },
+  { name: "Tuna (1 can)", serving: "5 oz can", cal: 120, pro: 28, carb: 0, fat: 1, tags: "tuna fish can" },
+  { name: "Turkey deli slices (4oz)", serving: "4 oz", cal: 120, pro: 18, carb: 4, fat: 2, tags: "turkey deli sandwich meat" },
+
+  // Dairy
+  { name: "Greek yogurt (plain, 1 cup)", serving: "1 cup", cal: 130, pro: 22, carb: 8, fat: 0, tags: "greek yogurt" },
+  { name: "Cottage cheese 2% (1 cup)", serving: "1 cup", cal: 180, pro: 24, carb: 8, fat: 5, tags: "cottage cheese" },
+  { name: "Milk whole (1 cup)", serving: "1 cup", cal: 150, pro: 8, carb: 12, fat: 8, tags: "milk whole" },
+  { name: "Milk low-fat (1 cup)", serving: "1 cup", cal: 105, pro: 8, carb: 12, fat: 2, tags: "milk low fat skim" },
+  { name: "Cheese stick (low-fat)", serving: "1 stick", cal: 60, pro: 6, carb: 1, fat: 3, tags: "cheese stick string" },
+  { name: "Cheddar cheese (1oz)", serving: "1 oz", cal: 110, pro: 7, carb: 0, fat: 9, tags: "cheddar cheese" },
+
+  // Supplements
+  { name: "Whey protein (1 scoop)", serving: "1 scoop", cal: 120, pro: 24, carb: 3, fat: 1, tags: "whey protein powder shake scoop" },
+  { name: "Casein protein (1 scoop)", serving: "1 scoop", cal: 120, pro: 24, carb: 4, fat: 1, tags: "casein protein powder shake scoop" },
+  { name: "Collagen peptides (1 scoop)", serving: "1 scoop", cal: 70, pro: 18, carb: 0, fat: 0, tags: "collagen peptides" },
+  { name: "Protein bar (avg)", serving: "1 bar", cal: 250, pro: 20, carb: 30, fat: 8, tags: "protein bar" },
+
+  // Grains & carbs
+  { name: "Brown rice (1 cup cooked)", serving: "1 cup", cal: 215, pro: 5, carb: 45, fat: 2, tags: "brown rice" },
+  { name: "White rice (1 cup cooked)", serving: "1 cup", cal: 205, pro: 4, carb: 45, fat: 0, tags: "white rice" },
+  { name: "Sweet potato (1 medium)", serving: "1 medium", cal: 103, pro: 2, carb: 24, fat: 0, tags: "sweet potato yam" },
+  { name: "Oats (1/2 cup dry)", serving: "1/2 cup", cal: 150, pro: 5, carb: 27, fat: 3, tags: "oats oatmeal" },
+  { name: "Bread (1 slice)", serving: "1 slice", cal: 80, pro: 4, carb: 14, fat: 1, tags: "bread toast slice" },
+  { name: "Bread (2 slices)", serving: "2 slices", cal: 160, pro: 8, carb: 28, fat: 2, tags: "bread toast sandwich" },
+  { name: "Pasta (1 cup cooked)", serving: "1 cup", cal: 220, pro: 8, carb: 43, fat: 1, tags: "pasta spaghetti noodles" },
+  { name: "Tortilla flour (10in)", serving: "1 tortilla", cal: 290, pro: 7, carb: 48, fat: 7, tags: "tortilla wrap flour burrito" },
+  { name: "Rice cakes (2)", serving: "2 cakes", cal: 70, pro: 1, carb: 15, fat: 0, tags: "rice cakes" },
+  { name: "Bagel (1 large)", serving: "1 bagel", cal: 280, pro: 10, carb: 54, fat: 2, tags: "bagel" },
+  { name: "Cereal (1.5 cups)", serving: "1.5 cups", cal: 200, pro: 4, carb: 44, fat: 1, tags: "cereal" },
+  { name: "Granola (1/2 cup)", serving: "1/2 cup", cal: 220, pro: 5, carb: 32, fat: 9, tags: "granola" },
+
+  // Fruits
+  { name: "Banana (1 medium)", serving: "1 banana", cal: 105, pro: 1, carb: 27, fat: 0, tags: "banana" },
+  { name: "Apple (1 medium)", serving: "1 apple", cal: 95, pro: 0, carb: 25, fat: 0, tags: "apple" },
+  { name: "Frozen mixed fruit (1 cup)", serving: "1 cup", cal: 80, pro: 1, carb: 20, fat: 0, tags: "frozen fruit berries mixed" },
+  { name: "Blueberries (1 cup)", serving: "1 cup", cal: 85, pro: 1, carb: 21, fat: 0, tags: "blueberries berries" },
+  { name: "Strawberries (1 cup)", serving: "1 cup", cal: 50, pro: 1, carb: 12, fat: 0, tags: "strawberries berries" },
+  { name: "Orange (1 medium)", serving: "1 orange", cal: 65, pro: 1, carb: 16, fat: 0, tags: "orange" },
+
+  // Fats
+  { name: "Peanut butter (1 tbsp)", serving: "1 tbsp", cal: 95, pro: 4, carb: 3, fat: 8, tags: "peanut butter pb" },
+  { name: "Peanut butter (2 tbsp)", serving: "2 tbsp", cal: 190, pro: 7, carb: 7, fat: 16, tags: "peanut butter pb" },
+  { name: "Almond butter (1 tbsp)", serving: "1 tbsp", cal: 98, pro: 3, carb: 3, fat: 9, tags: "almond butter" },
+  { name: "Almonds (1oz, ~23)", serving: "1 oz", cal: 160, pro: 6, carb: 6, fat: 14, tags: "almonds nuts" },
+  { name: "Mixed nuts (1oz)", serving: "1 oz", cal: 170, pro: 5, carb: 7, fat: 15, tags: "mixed nuts trail" },
+  { name: "Avocado (1/2)", serving: "1/2 avocado", cal: 160, pro: 2, carb: 9, fat: 15, tags: "avocado guac" },
+  { name: "Olive oil (1 tbsp)", serving: "1 tbsp", cal: 120, pro: 0, carb: 0, fat: 14, tags: "olive oil" },
+  { name: "Chia seeds (1 tbsp)", serving: "1 tbsp", cal: 60, pro: 2, carb: 5, fat: 4, tags: "chia seeds" },
+
+  // Veggies
+  { name: "Broccoli (1 cup)", serving: "1 cup", cal: 55, pro: 4, carb: 11, fat: 0, tags: "broccoli vegetable" },
+  { name: "Mixed greens salad", serving: "2 cups", cal: 20, pro: 2, carb: 3, fat: 0, tags: "salad greens lettuce" },
+  { name: "Fajita veggies (Chipotle)", serving: "1 serving", cal: 20, pro: 1, carb: 4, fat: 0, tags: "fajita veggies peppers onions" },
+
+  // Meals & combos (Jacob's favorites)
+  { name: "Protein shake (milk, whey, PB, chia, fruit, creatine, collagen)", serving: "1 shake", cal: 530, pro: 56, carb: 43, fat: 15, tags: "protein shake smoothie my shake morning" },
+  { name: "4 eggs + bread + cheese stick", serving: "1 meal", cal: 500, pro: 38, carb: 31, fat: 25, tags: "eggs bread cheese lunch my lunch" },
+
+  // Restaurant / fast casual
+  { name: "Chipotle chicken bowl (rice, beans, veggies, cheese, guac)", serving: "1 bowl", cal: 880, pro: 52, carb: 76, fat: 38, tags: "chipotle chicken bowl burrito bowl" },
+  { name: "Chipotle chicken burrito", serving: "1 burrito", cal: 1030, pro: 55, carb: 120, fat: 38, tags: "chipotle chicken burrito" },
+  { name: "Chipotle steak bowl", serving: "1 bowl", cal: 900, pro: 48, carb: 76, fat: 42, tags: "chipotle steak bowl" },
+  { name: "Chicken burrito (generic)", serving: "1 burrito", cal: 750, pro: 42, carb: 72, fat: 28, tags: "chicken burrito" },
+  { name: "Beef burrito (generic)", serving: "1 burrito", cal: 820, pro: 38, carb: 75, fat: 35, tags: "beef burrito" },
+  { name: "Chicken sandwich (grilled)", serving: "1 sandwich", cal: 450, pro: 35, carb: 40, fat: 14, tags: "chicken sandwich grilled" },
+  { name: "Turkey sandwich", serving: "1 sandwich", cal: 380, pro: 28, carb: 38, fat: 10, tags: "turkey sandwich sub" },
+  { name: "Hamburger (single patty)", serving: "1 burger", cal: 550, pro: 30, carb: 40, fat: 28, tags: "hamburger burger" },
+  { name: "Pizza slice (cheese)", serving: "1 slice", cal: 270, pro: 12, carb: 34, fat: 10, tags: "pizza slice cheese" },
+  { name: "Pizza slice (pepperoni)", serving: "1 slice", cal: 310, pro: 14, carb: 34, fat: 14, tags: "pizza slice pepperoni" },
+  { name: "Chicken quesadilla", serving: "1 quesadilla", cal: 520, pro: 32, carb: 38, fat: 26, tags: "chicken quesadilla" },
+  { name: "Chicken tacos (2)", serving: "2 tacos", cal: 400, pro: 28, carb: 32, fat: 18, tags: "chicken tacos taco" },
+  { name: "Sushi roll (8 pieces)", serving: "1 roll", cal: 350, pro: 15, carb: 50, fat: 8, tags: "sushi roll" },
+  { name: "Poke bowl", serving: "1 bowl", cal: 600, pro: 35, carb: 65, fat: 18, tags: "poke bowl" },
+  { name: "Pad thai", serving: "1 serving", cal: 700, pro: 25, carb: 85, fat: 28, tags: "pad thai noodles" },
+  { name: "Grilled chicken salad", serving: "1 salad", cal: 400, pro: 38, carb: 15, fat: 22, tags: "grilled chicken salad" },
+  { name: "Acai bowl", serving: "1 bowl", cal: 500, pro: 8, carb: 75, fat: 18, tags: "acai bowl" },
+
+  // Snacks
+  { name: "Beef jerky (1oz)", serving: "1 oz", cal: 80, pro: 13, carb: 3, fat: 1, tags: "beef jerky snack" },
+  { name: "Trail mix (1/4 cup)", serving: "1/4 cup", cal: 160, pro: 4, carb: 14, fat: 10, tags: "trail mix" },
+  { name: "Hummus + veggies", serving: "1 serving", cal: 200, pro: 6, carb: 20, fat: 10, tags: "hummus veggies carrots" },
+  { name: "Chips + salsa", serving: "1 serving", cal: 250, pro: 3, carb: 35, fat: 12, tags: "chips salsa tortilla" },
+  { name: "Popcorn (3 cups)", serving: "3 cups", cal: 100, pro: 3, carb: 19, fat: 1, tags: "popcorn" },
+  { name: "Crackers + cheese", serving: "1 serving", cal: 200, pro: 7, carb: 16, fat: 12, tags: "crackers cheese snack" },
+
+  // Drinks
+  { name: "Coffee (black)", serving: "1 cup", cal: 5, pro: 0, carb: 0, fat: 0, tags: "coffee black" },
+  { name: "Coffee with cream + sugar", serving: "1 cup", cal: 80, pro: 1, carb: 10, fat: 4, tags: "coffee cream sugar" },
+  { name: "Orange juice (8oz)", serving: "8 oz", cal: 110, pro: 2, carb: 26, fat: 0, tags: "orange juice oj" },
+  { name: "Smoothie (fruit, generic)", serving: "16 oz", cal: 300, pro: 5, carb: 60, fat: 4, tags: "smoothie fruit" },
+  { name: "Gatorade / sports drink", serving: "20 oz", cal: 140, pro: 0, carb: 36, fat: 0, tags: "gatorade sports drink electrolytes" },
+  { name: "Beer (12oz)", serving: "1 beer", cal: 150, pro: 1, carb: 13, fat: 0, tags: "beer alcohol" },
+];
+
+// ========== SUPPLEMENTS ==========
+const SUPPLEMENTS = [
+  { name: "Creatine Monohydrate", dose: "5g/day" },
+  { name: "Whey Protein", dose: "1-2 scoops" },
+  { name: "Vitamin D3", dose: "5000 IU" },
+  { name: "Omega-3 Fish Oil", dose: "2-3g EPA/DHA" },
+  { name: "Magnesium Glycinate", dose: "400mg" },
+  { name: "Electrolytes", dose: "1 serving (run days)" },
+  { name: "Zinc", dose: "30mg" },
+  { name: "B-Complex", dose: "1 tablet" },
+  { name: "Collagen Peptides", dose: "1 scoop" },
+];
+
+// ========== STATE ==========
+const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
+let modalFood = null;
+let modalQty = 1;
+
+function getState() {
+  try { return JSON.parse(localStorage.getItem('macroTracker') || '{}'); }
+  catch(e) { return {}; }
+}
+function saveState(s) { localStorage.setItem('macroTracker', JSON.stringify(s)); }
+
+// Custom foods database (persisted in localStorage)
+function getCustomFoods() {
+  try { return JSON.parse(localStorage.getItem('macroCustomFoods') || '[]'); }
+  catch(e) { return []; }
+}
+function saveCustomFood(food) {
+  const customs = getCustomFoods();
+  // Don't add duplicates (by name)
+  if (!customs.find(f => f.name.toLowerCase() === food.name.toLowerCase())) {
+    customs.unshift(food); // add to front so newest appear first
+    localStorage.setItem('macroCustomFoods', JSON.stringify(customs));
+  }
+}
+function getAllFoods() {
+  return [...getCustomFoods(), ...FOODS];
+}
+
+function getTodayLog() {
+  const s = getState();
+  return s[today()] || { foods: [], supps: [] };
+}
+function saveTodayLog(log) {
+  const s = getState();
+  s[today()] = log;
+  saveState(s);
+}
+
+// ========== SEARCH ==========
+function searchFood() {
+  const q = document.getElementById('foodInput').value.toLowerCase().trim();
+  if (!q) return;
+  const allFoods = getAllFoods();
+  const results = allFoods.filter(f => {
+    const text = (f.name + ' ' + (f.tags || '')).toLowerCase();
+    return q.split(' ').every(word => text.includes(word));
+  }).slice(0, 10);
+
+  const el = document.getElementById('searchResults');
+  if (results.length === 0) {
+    el.innerHTML = '<div style="padding:12px 4px;color:var(--text2);font-size:13px;">No matches found. Try simpler terms, or <a href="#" style="color:var(--teal);" onclick="event.preventDefault();toggleCustomForm();">add it as a custom food</a>.</div>';
+    return;
+  }
+  el.innerHTML = results.map((f, i) => `
+    <div class="search-item" onclick="openModal(${i}, 'search')">
+      <div>
+        <div class="name">${f.name}</div>
+        <div class="details">${f.cal} cal · ${f.pro}p · ${f.carb}c · ${f.fat}f</div>
+      </div>
+      <button class="add-btn" onclick="event.stopPropagation();openModal(${i}, 'search')">+ Add</button>
+    </div>
+  `).join('');
+  el._results = results;
+}
+
+document.getElementById('foodInput').addEventListener('keydown', e => { if(e.key === 'Enter') searchFood(); });
+
+// ========== MODAL ==========
+function openModal(idx, source) {
+  const food = source === 'search' ? document.getElementById('searchResults')._results[idx] : getAllFoods()[idx];
+  modalFood = food;
+  modalQty = 1;
+  document.getElementById('modalFoodName').textContent = food.serving;
+  document.getElementById('qtyVal').textContent = '1';
+  document.getElementById('qtyUnit').textContent = food.serving;
+  updatePreview();
+  document.getElementById('qtyModal').classList.add('active');
+}
+
+function closeModal() { document.getElementById('qtyModal').classList.remove('active'); }
+
+function changeQty(delta) {
+  modalQty = Math.max(0.5, modalQty + delta);
+  document.getElementById('qtyVal').textContent = modalQty % 1 === 0 ? modalQty : modalQty.toFixed(1);
+  updatePreview();
+}
+
+function updatePreview() {
+  document.getElementById('prevCal').textContent = Math.round(modalFood.cal * modalQty);
+  document.getElementById('prevPro').textContent = Math.round(modalFood.pro * modalQty);
+  document.getElementById('prevCarb').textContent = Math.round(modalFood.carb * modalQty);
+  document.getElementById('prevFat').textContent = Math.round(modalFood.fat * modalQty);
+}
+
+function confirmAdd() {
+  const entry = {
+    name: modalFood.name,
+    cal: Math.round(modalFood.cal * modalQty),
+    pro: Math.round(modalFood.pro * modalQty),
+    carb: Math.round(modalFood.carb * modalQty),
+    fat: Math.round(modalFood.fat * modalQty),
+    qty: modalQty
+  };
+  const log = getTodayLog();
+  log.foods.push(entry);
+  saveTodayLog(log);
+  closeModal();
+  document.getElementById('searchResults').innerHTML = '';
+  document.getElementById('foodInput').value = '';
+  renderToday();
+}
+
+// ========== CUSTOM FOOD ==========
+function toggleCustomForm() {
+  const form = document.getElementById('customForm');
+  const btn = document.getElementById('customToggle');
+  if (form.style.display === 'none') {
+    form.style.display = 'block';
+    btn.style.display = 'none';
+    document.getElementById('cfName').focus();
+  } else {
+    form.style.display = 'none';
+    btn.style.display = 'block';
+  }
+}
+
+function addCustomFood() {
+  const name = document.getElementById('cfName').value.trim();
+  const cal = parseInt(document.getElementById('cfCal').value) || 0;
+  const pro = parseInt(document.getElementById('cfPro').value) || 0;
+  const carb = parseInt(document.getElementById('cfCarb').value) || 0;
+  const fat = parseInt(document.getElementById('cfFat').value) || 0;
+  if (!name) { alert('Please enter a food name'); return; }
+  if (cal === 0 && pro === 0 && carb === 0 && fat === 0) { alert('Please enter at least one macro value'); return; }
+
+  const entry = { name: name, cal: cal, pro: pro, carb: carb, fat: fat, qty: 1 };
+  const log = getTodayLog();
+  log.foods.push(entry);
+  saveTodayLog(log);
+
+  // Save to custom foods database so it appears in future searches
+  saveCustomFood({ name: name, serving: "1 serving", cal: cal, pro: pro, carb: carb, fat: fat, tags: name.toLowerCase() });
+
+  // Clear form
+  document.getElementById('cfName').value = '';
+  document.getElementById('cfCal').value = '';
+  document.getElementById('cfPro').value = '';
+  document.getElementById('cfCarb').value = '';
+  document.getElementById('cfFat').value = '';
+  toggleCustomForm();
+  renderToday();
+}
+
+// ========== RENDER ==========
+function renderToday() {
+  const log = getTodayLog();
+  let totals = { cal: 0, pro: 0, carb: 0, fat: 0 };
+  log.foods.forEach(f => { totals.cal += f.cal; totals.pro += f.pro; totals.carb += f.carb; totals.fat += f.fat; });
+
+  document.getElementById('calVal').textContent = totals.cal;
+  document.getElementById('proVal').textContent = totals.pro;
+  document.getElementById('carbVal').textContent = totals.carb;
+  document.getElementById('fatVal').textContent = totals.fat;
+
+  document.getElementById('calBar').style.width = Math.min(100, (totals.cal / TARGETS.cal) * 100) + '%';
+  document.getElementById('proBar').style.width = Math.min(100, (totals.pro / TARGETS.pro) * 100) + '%';
+  document.getElementById('carbBar').style.width = Math.min(100, (totals.carb / TARGETS.carb) * 100) + '%';
+  document.getElementById('fatBar').style.width = Math.min(100, (totals.fat / TARGETS.fat) * 100) + '%';
+
+  const logEl = document.getElementById('todayLog');
+  if (log.foods.length === 0) {
+    logEl.innerHTML = '<div class="empty-state">No food logged yet today.</div>';
+  } else {
+    logEl.innerHTML = log.foods.map((f, i) => `
+      <div class="log-item">
+        <div class="info">
+          <div class="name">${f.name}${f.qty > 1 ? ' ×' + f.qty : ''}</div>
+          <div class="macros">${f.pro}p · ${f.carb}c · ${f.fat}f</div>
+        </div>
+        <div style="display:flex;align-items:center;">
+          <div class="cals">${f.cal}</div>
+          <button class="remove" onclick="removeFood(${i})">×</button>
+        </div>
+      </div>
+    `).join('');
+  }
+}
+
+function removeFood(idx) {
+  const log = getTodayLog();
+  log.foods.splice(idx, 1);
+  saveTodayLog(log);
+  renderToday();
+}
+
+function clearDay() {
+  if (confirm('Clear all food logged today?')) {
+    const log = getTodayLog();
+    log.foods = [];
+    saveTodayLog(log);
+    renderToday();
+  }
+}
+
+// ========== QUICK FOODS ==========
+function renderQuickFoods() {
+  const allFoods = getAllFoods();
+  const customs = getCustomFoods();
+
+  // Show custom foods first (labeled as "My Foods"), then built-in favorites
+  const builtInQuick = [
+    "Protein shake (milk, whey, PB, chia, fruit, creatine, collagen)",
+    "4 eggs + bread + cheese stick",
+    "Chicken breast (grilled, 6oz)",
+    "Whey protein (1 scoop)",
+    "Brown rice (1 cup cooked)",
+    "Banana (1 medium)",
+    "Apple (1 medium)",
+    "Greek yogurt (plain, 1 cup)",
+    "Chipotle chicken bowl (rice, beans, veggies, cheese, guac)",
+    "Protein bar (avg)",
+    "Peanut butter (1 tbsp)",
+    "Eggs (1 large)",
+    "Almonds (1oz, ~23)",
+  ];
+
+  const el = document.getElementById('quickFoods');
+  let html = '';
+
+  // Custom foods chips (with star marker)
+  customs.forEach(cf => {
+    const idx = allFoods.findIndex(f => f.name === cf.name);
+    if (idx !== -1) {
+      html += `<div class="quick-chip" style="border-color:var(--accent);" onclick="openModal(${idx}, 'db')">★ ${cf.name.split('(')[0].trim()}</div>`;
+    }
+  });
+
+  // Built-in quick chips
+  builtInQuick.forEach(name => {
+    const idx = allFoods.findIndex(f => f.name === name);
+    if (idx !== -1) {
+      html += `<div class="quick-chip" onclick="openModal(${idx}, 'db')">${name.split('(')[0].trim()}</div>`;
+    }
+  });
+
+  el.innerHTML = html;
+}
+
+// ========== HISTORY ==========
+function renderHistory() {
+  const s = getState();
+  const days = Object.keys(s).sort().reverse();
+  const el = document.getElementById('historyList');
+  if (days.length === 0) {
+    el.innerHTML = '<div class="empty-state">No history yet. Start logging food!</div>';
+    return;
+  }
+  el.innerHTML = days.map(day => {
+    const log = s[day];
+    if (!log.foods || log.foods.length === 0) return '';
+    let t = { cal: 0, pro: 0, carb: 0, fat: 0 };
+    log.foods.forEach(f => { t.cal += f.cal; t.pro += f.pro; t.carb += f.carb; t.fat += f.fat; });
+    const dateStr = new Date(day + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    return `
+      <div class="history-day">
+        <div class="day-header">
+          <div class="day-date">${dateStr}</div>
+          <div class="day-cals">${t.cal} cal</div>
+        </div>
+        <div class="day-macros">${t.pro}g protein · ${t.carb}g carbs · ${t.fat}g fat</div>
+        <div class="day-foods">${log.foods.map(f => f.name.split('(')[0].trim()).join(', ')}</div>
+      </div>
+    `;
+  }).filter(Boolean).join('');
+}
+
+// ========== SUPPLEMENTS ==========
+function renderSupps() {
+  const log = getTodayLog();
+  if (!log.supps) log.supps = [];
+  const el = document.getElementById('suppList');
+  el.innerHTML = SUPPLEMENTS.map((s, i) => {
+    const checked = log.supps.includes(i);
+    return `
+      <div class="supp-item">
+        <div class="supp-info">
+          <div class="supp-name">${s.name}</div>
+          <div class="supp-dose">${s.dose}</div>
+        </div>
+        <button class="supp-check ${checked ? 'checked' : ''}" onclick="toggleSupp(${i})">✓</button>
+      </div>
+    `;
+  }).join('');
+}
+
+function toggleSupp(idx) {
+  const log = getTodayLog();
+  if (!log.supps) log.supps = [];
+  const i = log.supps.indexOf(idx);
+  if (i >= 0) log.supps.splice(i, 1);
+  else log.supps.push(idx);
+  saveTodayLog(log);
+  renderSupps();
+}
+
+// ========== NAVIGATION ==========
+function switchPage(pageId, tabEl) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(pageId).classList.add('active');
+  tabEl.classList.add('active');
+  if (pageId === 'pageHistory') renderHistory();
+  if (pageId === 'pageSupps') renderSupps();
+}
+
+// ========== DATE MIGRATION (fix UTC bug) ==========
+(function migrateDateBug() {
+  if (localStorage.getItem('macroDateMigrated')) return;
+  const s = getState();
+  const localDate = today();
+  // The old bug used UTC date via toISOString — check for tomorrow's key with data
+  const tomorrow = (() => { const t = new Date(); t.setDate(t.getDate()+1); return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0'); })();
+  if (s[tomorrow] && !s[localDate]) {
+    s[localDate] = s[tomorrow];
+    delete s[tomorrow];
+    saveState(s);
+  }
+  localStorage.setItem('macroDateMigrated', '1');
+})();
+
+// ========== INIT ==========
+function init() {
+  const d = new Date();
+  document.getElementById('dateDisplay').textContent = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  renderToday();
+  renderQuickFoods();
+  renderSupps();
+}
+init();
+</script>
+</body>
+</html>
